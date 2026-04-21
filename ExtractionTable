@@ -1,0 +1,62 @@
+*&---------------------------------------------------------------------*
+*& Report ZDAEG_BOUCLETABLEOT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT ZDAEG_BOUCLETABLEOT.
+
+" declaration variable qui va recevoir tables de l ot
+DATA lt_listeObjname TYPE SORTED TABLE OF e071k-objname
+                     WITH UNIQUE KEY table_line.
+
+SELECT DISTINCT
+  OBJNAME
+  FROM E071K
+  INTO TABLE lt_listeObjname
+  WHERE
+  TRKORR = 'DSEK913379'
+  AND
+  OBJECT = 'TABU'
+  .
+" retourne toutes les tables de l OT
+
+" declare une variable qui va receoir le nom de la table a parcourir
+DATA lr_data TYPE REF TO data.
+
+FIELD-SYMBOLS:
+  <lt_table> TYPE STANDARD TABLE, "declare une table standard SAP
+  <ls_line>  TYPE any.
+
+LOOP AT lt_listeObjname INTO DATA(lv_tabname).
+
+  "--- Créer une table interne dynamique basée sur la table SAP
+  CREATE DATA lr_data TYPE STANDARD TABLE OF (lv_tabname).
+  ASSIGN lr_data->* TO <lt_table>.
+
+  "--- Lire les données de la table
+  SELECT *
+    FROM (lv_tabname)
+    INTO TABLE <lt_table>.
+
+  "--- Parcourir les lignes de la table
+"  LOOP AT <lt_table> ASSIGNING <ls_line>.
+    " Traitement générique
+"    WRITE: / lv_tabname.
+"  ENDLOOP.
+ENDLOOP.
+
+
+DATA lt_file TYPE STANDARD TABLE OF string.
+DATA lv_line TYPE string.
+
+LOOP AT <lt_table> ASSIGNING <ls_line>.
+  lv_line = |{ <ls_line> }|.
+  APPEND lv_line TO lt_file.
+ENDLOOP.
+
+cl_gui_frontend_services=>gui_download(
+  EXPORTING
+    filename = 'C:\temp\export.csv'
+    filetype = 'ASC'
+  CHANGING
+    data_tab = lt_file ).
