@@ -1,62 +1,107 @@
 *&---------------------------------------------------------------------*
 *& Report ZDAEG_BOUCLETABLEOT
 *&---------------------------------------------------------------------*
-*&
-*&---------------------------------------------------------------------*
-REPORT ZDAEG_BOUCLETABLEOT.
+REPORT zdaeg_boucletableot.
 
-" declaration variable qui va recevoir tables de l ot
+"------------------------------------------------------------
+" Tables de l'ordre de transport
+"------------------------------------------------------------
 DATA lt_listeObjname TYPE SORTED TABLE OF e071k-objname
                      WITH UNIQUE KEY table_line.
 
-SELECT DISTINCT
-  OBJNAME
-  FROM E071K
+SELECT DISTINCT objname
+  FROM e071k
   INTO TABLE lt_listeObjname
-  WHERE
-  TRKORR = 'DSEK913379'
-  AND
-  OBJECT = 'TABU'
-  .
-" retourne toutes les tables de l OT
+  WHERE trkorr = 'DSEK911930'
+    AND object = 'TABU'.
 
-" declare une variable qui va receoir le nom de la table a parcourir
+"------------------------------------------------------------
+" Données dynamiques
+"------------------------------------------------------------
 DATA lr_data TYPE REF TO data.
 
 FIELD-SYMBOLS:
-  <lt_table> TYPE STANDARD TABLE, "declare une table standard SAP
-  <ls_line>  TYPE any.
+  <lt_table> TYPE STANDARD TABLE,
+  <ls_line>  TYPE any,
+  <lv_comp>  TYPE any.
 
+"------------------------------------------------------------
+" Variables export CSV
+"------------------------------------------------------------
+DATA lv_value_c TYPE c LENGTH 255.
+DATA lt_file  TYPE STANDARD TABLE OF string.
+DATA lv_line  TYPE string.
+DATA lv_value TYPE string.
+DATA lv_file  TYPE string.
+
+" RTTI pour l’en-tête
+DATA lo_tabdescr    TYPE REF TO cl_abap_tabledescr.
+DATA lo_strdescr    TYPE REF TO cl_abap_structdescr.
+DATA lt_components  TYPE cl_abap_structdescr=>component_table.
+
+"------------------------------------------------------------
+" Boucle sur les tables de l’OT
+"------------------------------------------------------------
 LOOP AT lt_listeObjname INTO DATA(lv_tabname).
 
-  "--- Créer une table interne dynamique basée sur la table SAP
+  CLEAR lt_file.
+
+  "--- Création table interne dynamique
   CREATE DATA lr_data TYPE STANDARD TABLE OF (lv_tabname).
   ASSIGN lr_data->* TO <lt_table>.
 
-  "--- Lire les données de la table
+  "--- Lecture du contenu de la table SAP
   SELECT *
     FROM (lv_tabname)
     INTO TABLE <lt_table>.
 
-  "--- Parcourir les lignes de la table
-"  LOOP AT <lt_table> ASSIGNING <ls_line>.
-    " Traitement générique
-"    WRITE: / lv_tabname.
+  "--- ===============================
+  "--- Construction de l’en-tête CSV
+  "--- ===============================
+  "lo_tabdescr ?= cl_abap_typedescr=>describe_by_data( <lt_table> ).
+  "lo_strdescr ?= lo_tabdescr->get_table_line_type( ).
+  "lt_components = lo_strdescr->components.
+
+"  CLEAR lv_line.
+"  LOOP AT lt_components INTO DATA(ls_comp).
+"    CONCATENATE lv_line ls_comp-name ';' INTO lv_line.
 "  ENDLOOP.
+
+"  APPEND lv_line TO lt_file.
+
+  "--- ===============================
+  "--- Données
+  "--- ===============================
+  LOOP AT <lt_table> ASSIGNING <ls_line>.
+
+    CLEAR lv_line.
+
+    DO.
+      ASSIGN COMPONENT sy-index OF STRUCTURE <ls_line> TO <lv_comp>.
+      IF sy-subrc <> 0.
+        EXIT.
+      ENDIF.
+
+      CLEAR lv_value_c.
+      WRITE <lv_comp> TO lv_value_c.
+
+      CONCATENATE lv_line lv_value_c ';' INTO lv_line.
+    ENDDO.
+
+    APPEND lv_line TO lt_file.
+
+  ENDLOOP.
+
+  "--- ===============================
+  "--- Export CSV (1 fichier par table)
+  "--- ===============================
+  CONCATENATE 'C:\temp\' lv_tabname '.csv' INTO lv_file.
+
+  cl_gui_frontend_services=>gui_download(
+    EXPORTING
+      filename = lv_file
+      filetype = 'ASC'
+    CHANGING
+      data_tab = lt_file ).
+
 ENDLOOP.
-
-
-DATA lt_file TYPE STANDARD TABLE OF string.
-DATA lv_line TYPE string.
-
-LOOP AT <lt_table> ASSIGNING <ls_line>.
-  lv_line = |{ <ls_line> }|.
-  APPEND lv_line TO lt_file.
-ENDLOOP.
-
-cl_gui_frontend_services=>gui_download(
-  EXPORTING
-    filename = 'C:\temp\export.csv'
-    filetype = 'ASC'
-  CHANGING
-    data_tab = lt_file ).
