@@ -1,7 +1,13 @@
 *&---------------------------------------------------------------------*
-*& Report ZDAEG_BOUCLETABLEOT
+*& Report ZDAEG_EXTRACTTABLEOT
 *&---------------------------------------------------------------------*
-REPORT zdaeg_boucletableot.
+REPORT ZDAEG_EXTRACTTABLEOT.
+
+*---------------------------------------------------------------------*
+* Paramètres
+* Va permettre  de renseigner l OT souhaite
+*---------------------------------------------------------------------*
+PARAMETERS p_trkorr TYPE trkorr OBLIGATORY.
 
 "------------------------------------------------------------
 " Tables de l'ordre de transport
